@@ -5,6 +5,7 @@ from app.api.routes.health import router as health_router
 from app.api.routes.inputs import router as inputs_router
 from app.api.routes.optimizations import router as optimizations_router
 from app.core.config import settings
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
     title="DesaNyala API",
@@ -18,6 +19,16 @@ app = FastAPI(
 @app.get("/", include_in_schema=False)
 async def root():
     return RedirectResponse(url="/docs", status_code=307)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://desanyala-fe.vercel.app",
+    ],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.add_middleware(
     CORSMiddleware,
