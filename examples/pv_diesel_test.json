@@ -1,0 +1,89 @@
+
+{
+  "schema_version": "desanyala.input.v1",
+  "project": {
+    "name": "Desa Demo",
+    "location": "Kabupaten Contoh, Indonesia",
+    "households": 150,
+    "electrification_status": "unserved",
+    "simulation_days": 365,
+    "time_step_hours": 1,
+    "project_lifetime_years": 20,
+    "currency": "IDR"
+  },
+  "demand": {
+    "profile_source": "equipment_estimate",
+    "loads": [
+      {
+        "category": "Rumah tangga",
+        "device": "Lampu LED",
+        "quantity": 150,
+        "power_w": 10,
+        "hours_per_day": 6,
+        "usage_period": "evening",
+        "critical": false
+      }
+    ]
+  },
+  "pv": {
+    "enabled": true,
+    "resource_location": "Kabupaten Contoh, Indonesia",
+    "peak_sun_hours_estimate": 4.5,
+    "system_performance_factor": 0.8,
+    "capacity_mode": "optimize",
+    "capacity_min_kwp": 0,
+    "capacity_max_kwp": 200,
+    "capex_per_kwp": 15000000,
+    "opex_annual_per_kwp": 200000,
+    "lifetime_years": 25
+  },
+  "generators": {
+    "mode": "new",
+    "unit_count": 1,
+    "identical_units_assumption": true,
+    "rated_power_each_kw": 100,
+    "min_loading_fraction": 0.3,
+    "max_loading_fraction": 1.0,
+    "fuel_price_per_liter": 10000,
+    "fuel_model": "efficiency",
+    "efficiency_fraction": 0.33,
+    "capex_per_kw": 10000000,
+    "opex_annual_per_unit": 5000000,
+    "lifetime_years": 10,
+    "unit_commitment_model": "aggregate"
+  },
+  "battery": {
+    "enabled": false,
+    "capacity_min_kwh": 0,
+    "capacity_max_kwh": 200,
+    "power_max_kw": 50,
+    "charge_efficiency": 0.97,
+    "discharge_efficiency": 0.97,
+    "soc_min_fraction": 0.2,
+    "soc_max_fraction": 1.0,
+    "soc_initial_fraction": 0.5,
+    "capex_per_kwh": 3000000,
+    "opex_annual_per_kwh": 50000,
+    "power_capex_per_kw": 1000000,
+    "power_opex_annual_per_kw": 0,
+    "lifetime_years": 13
+  },
+  "economics": {
+    "discount_rate": 0.08,
+    "fuel_price_escalation_annual": 0,
+    "additional_project_cost": 0
+  },
+  "reliability": {
+    "target_supply_fraction": 0.995,
+    "shortage_policy": "forbid",
+    "max_unmet_energy_fraction": 0,
+    "reserve_margin_fraction": 0.1
+  },
+  "optimization": {
+    "objective": "annualized_cost",
+    "scenarios": [
+      "pv_diesel"
+    ],
+    "solver_configuration": "backend_default"
+  }
+}

@@ -1,0 +1,20 @@
+backend/
+├── app/
+│   ├── main.py
+│   ├── api/routes/                 # health, input validation, optimization endpoint
+│   ├── core/config.py
+│   ├── schemas/                    # Pydantic frontend request/response contract
+│   └── services/
+│       ├── demand_profile.py       # equipment cards -> hourly demand approximation
+│       ├── pv_profile.py           # synthetic hourly PV profile approximation
+│       ├── offgridders_adapter.py  # workbook/time-series creation + subprocess runner
+│       └── result_mapper.py        # native summary/dispatch CSV -> output contract
+├── engine/offgridders/             # populated from user's local clone by script
+├── scripts/
+│   ├── import_offgridders.ps1
+│   └── verify_engine.ps1
+├── templates/offgridders_input_template.xlsx
+├── data/demo/offgridders_test_site_reference.csv
+├── runs/                           # isolated inputs, logs, and outputs per run
+├── tests/
+└── docs/                           # variable names, mapping and license/reproducibility notes

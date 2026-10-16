@@ -1,0 +1,192 @@
+DESANYALA — DAFTAR NAMA VARIABEL OUTPUT FRONTEND
+Versi desain: desanyala_output_dashboard.html
+Tujuan: kontrak output yang diusulkan untuk menyambungkan backend optimasi DesaNyala ke halaman hasil.
+
+PENTING
+1. Nama JSON di dokumen ini adalah kontrak API DesaNyala yang diusulkan, bukan nama kolom native Offgridders.
+2. Dashboard HTML ini menggunakan metrik hasil baseline Offgridders 365 hari yang diberikan pengguna. HTML tidak menjalankan optimasi.
+3. Hasil diesel-only belum tersedia di baseline yang disediakan dan karenanya harus diberi status pending, bukan diisi angka rekaan.
+4. LCOE baseline memakai satuan generik currency/kWh. Jangan tampilkan sebagai IDR/kWh sebelum satuan dan konfigurasi biaya diverifikasi.
+5. Dispatch per jam yang tersedia adalah keluaran baseline 8760 interval dari dua skenario PV+diesel dan PV+diesel+baterai. Tampilan detail HTML merender 96 interval pertama untuk demo; ekspor ringkasan harian memakai 365 baris hasil agregasi.
+
+============================================================
+A. KOMPONEN HTML OUTPUT (ID aktual)
+============================================================
+ID / selector                Fungsi
+scenario buttons [data-scenario] Pilih skenario hasil yang ditampilkan
+kpis                          Container kartu KPI utama
+mainChart                     Grafik dispatch / operasi energi
+energyChart                   Grafik total energi tahunan
+timeMode                      Selector ringkasan 365 hari / detail 4 hari pertama
+chartMode                     Selector profil energi / operasi baterai
+comparisonBody                Isi tabel perbandingan skenario
+capacityGrid                  Kartu kapasitas PV, baterai, daya baterai, genset
+renewableBar                  Bar porsi energi terbarukan
+renewablePct                  Nilai porsi energi terbarukan
+demandTotal                   Total kebutuhan energi tahunan
+demandPeak                    Beban puncak
+co2Value                      Estimasi emisi tahunan
+shortageValue                 Energi tidak terpenuhi tahunan
+shortageCheck                 Ringkasan pemeriksaan shortage
+periodCheck                   Jumlah interval pada profil output
+annuityValue                  Ringkasan annuity, saat ini tidak tersedia di objek demo
+solverTime                    Waktu evaluasi, saat ini tidak ditampilkan
+validationStatus              Catatan validasi hasil baseline
+downloadJson                  Unduh ringkasan output JSON
+downloadDispatch              Unduh 96 interval pertama sebagai CSV
+downloadDaily                 Unduh ringkasan agregat harian sebagai CSV
+printReport                   Cetak/simpan laporan melalui browser
+
+============================================================
+B. RESPONSE API YANG DIREKOMENDASIKAN
+============================================================
+Response envelope:
+{
+  "schema_version": "1.0.0",
+  "project_id": "string",
+  "status": "optimal | feasible | infeasible | error | baseline_reference",
+  "generated_at": "ISO-8601 timestamp",
+  "period_days": 365,
+  "time_step_hours": 1,
+  "units": {
+    "currency": "IDR",
+    "energy": "kWh",
+    "power": "kW",
+    "pv_capacity": "kWp",
+    "fuel": "liter",
+    "emissions": "kgCO2eq"
+  },
+  "selected_scenario_id": "pv-diesel-storage-mg",
+  "scenario_results": [],
+  "validation": {},
+  "warnings": []
+}
+
+Catatan: units.currency harus berasal dari konfigurasi proyek yang tervalidasi. Jangan mengasumsikan IDR bila input model menggunakan mata uang generik.
+
+============================================================
+C. VARIABLE TIAP SCENARIO RESULT
+============================================================
+scenario_results[] item:
+
+scenario_id             string unik, contoh: pv-diesel-storage-mg
+scenario_name           string untuk UI
+status                  optimal | feasible | infeasible | error
+metrics.lcoe            number, currency/kWh
+metrics.annualized_cost number, mata uang/tahun; jika backend menghitung dan memvalidasi
+metrics.npv             number, mata uang umur proyek; jika tersedia
+metrics.annual_demand_kwh number, kWh/tahun
+metrics.annual_supplied_kwh number, kWh/tahun
+metrics.annual_unmet_energy_kwh number, kWh/tahun
+metrics.supply_reliability_fraction number 0..1
+metrics.renewable_share_fraction number 0..1
+metrics.annual_fuel_liters number, liter/tahun
+metrics.annual_co2_kg number, kg CO2-eq/tahun
+metrics.peak_demand_kw   number, kW
+metrics.annual_pv_generation_kwh number, kWh/tahun
+metrics.annual_genset_generation_kwh number, kWh/tahun
+metrics.annual_excess_energy_kwh number, kWh/tahun
+
+capacities.pv_kwp        number, kWp
+capacities.genset_kw     number, kW (jelaskan apakah aggregate atau per-unit)
+capacities.battery_kwh   number, kWh
+capacities.battery_power_kw number, kW
+
+validation.energy_balance_passed boolean | null
+validation.reliability_passed boolean | null
+validation.capacity_constraints_passed boolean | null
+validation.solver_message string
+validation.warnings string[]
+
+============================================================
+D. VARIABLE DISPATCH PER INTERVAL
+============================================================
+dispatch[] item:
+  timestamp                 string ISO-8601
+  demand_kw                 number, kW
+  pv_kw                     number, kW
+  generator_power_kw        number, kW (aggregate; untuk multi-unit gunakan generators[])
+  battery_charge_kw         number, kW
+  battery_discharge_kw      number, kW
+  battery_soc_kwh           number, kWh energi tersimpan
+  battery_soc_fraction      number, 0..1 (opsional untuk UI persentase)
+  excess_power_kw           number, kW atau energy_kwh per interval; pilih satu definisi konsisten
+  unmet_demand_kw           number, kW atau energy_kwh per interval; pilih satu definisi konsisten
+
+Jika optimasi multi-genset sudah dikembangkan, tambahkan:
+  generators[]: { generator_id, is_on, power_output_kw, fuel_liters_per_hour }
+Jangan isi generator_id / status hidup-mati per unit jika engine masih hanya menghasilkan kapasitas genset agregat.
+
+============================================================
+E. PEMETAAN KE KOLOM OFFGRIDGERS YANG SUDAH DILIHAT
+============================================================
+Offgridders output     DesaNyala JSON yang direkomendasikan
+lcoe                   metrics.lcoe
+annuity                metrics.annualized_cost (konfirmasi definisi dan basis tahunnya)
+npv                    metrics.npv
+res_share              metrics.renewable_share_fraction
+total_demand_annual_kWh metrics.annual_demand_kwh
+total_demand_supplied_annual_kWh metrics.annual_supplied_kwh
+total_demand_shortage_annual_kWh metrics.annual_unmet_energy_kwh
+demand_peak_kW         metrics.peak_demand_kw
+capacity_pv_kWp        capacities.pv_kwp
+capacity_storage_kWh   capacities.battery_kwh
+power_storage_kW       capacities.battery_power_kw
+capacity_genset_kW     capacities.genset_kw
+total_pv_generation_kWh metrics.annual_pv_generation_kwh
+total_genset_generation_kWh metrics.annual_genset_generation_kwh
+consumption_fuel_annual_l metrics.annual_fuel_liters
+co2_emissions_kgCO2eq  metrics.annual_co2_kg
+timestep               dispatch[].timestamp
+Demand                 dispatch[].demand_kw
+PV generation          dispatch[].pv_kw
+Genset generation      dispatch[].generator_power_kw
+Storage charge         dispatch[].battery_charge_kw
+Storage discharge      dispatch[].battery_discharge_kw (normalisasikan tanda sesuai konvensi API)
+Storage SOC            dispatch[].battery_soc_fraction / kWh, sesuai definisi sumber
+Excess generation      dispatch[].excess_power_kw atau energi per interval
+Demand shortage AC/DC  dispatch[].unmet_demand_kw/energy; gabungkan setelah unit dipastikan
+
+Perhatian: file *_electricity_mg.csv pada contoh menggunakan koma sebagai delimiter. Nilai Storage SOC pada file contoh terlihat sebagai pecahan 0..1; jangan keliru menampilkannya langsung sebagai persen. Nilai Storage discharge dapat negatif pada konvensi sumber dan perlu dinormalisasi untuk chart/API.
+
+============================================================
+F. DATA BASELINE YANG DIEMBED DI HTML (BUKAN HASIL BARU)
+============================================================
+PV + Diesel (365 hari):
+  lcoe = 0.37556 currency/kWh
+  renewable_share_fraction = 0.27552
+  annual_demand_kwh = 209380.80237
+  peak_demand_kw = 100.20537
+  annual_unmet_energy_kwh = 0
+  pv_kwp = 38.57647
+  battery_kwh = 0
+  genset_kw = 100.20537
+  annual_pv_generation_kwh = 59795.45091
+  annual_fuel_liters = 48617.48355
+  annual_co2_kg = 130294.85591
+
+PV + Diesel + Baterai (365 hari):
+  lcoe = 0.34592 currency/kWh
+  renewable_share_fraction = 0.47034
+  annual_demand_kwh = 209380.80237
+  peak_demand_kw = 100.20537
+  annual_unmet_energy_kwh = 0
+  pv_kwp = 66.70538
+  battery_kwh = 87.97819
+  battery_power_kw = 43.98909
+  genset_kw = 56.21628
+  annual_pv_generation_kwh = 103396.67416
+  annual_fuel_liters = 36004.50638
+  annual_co2_kg = 96492.07710
+
+Diesel-only: status pending; hasil baseline aktual tidak tersedia, jadi jangan membuat angka placeholder seolah hasil optimasi.
+
+============================================================
+G. VALIDASI DAN IMPLEMENTASI
+============================================================
+- HTML output saat ini tidak menjalankan optimizer. Data hasil hanya dari baseline yang dikirim dalam percakapan.
+- Endpoint yang disarankan: POST /api/v1/optimizations dan GET /api/v1/optimizations/{run_id}.
+- Status solver harus dipisahkan dari status validasi. Jangan sebut hasil "optimal" bila solver atau cek kendala gagal.
+- Tentukan konsisten apakah dispatch menyimpan daya rata-rata kW atau energi per interval kWh. Interval di contoh 1 jam, sehingga jumlah kW per baris numerik kebetulan sama dengan kWh per interval tetapi satuannya tetap berbeda.
+- LCOE dalam hasil sumber tertulis currency/kWh; konfirmasi unit biaya sebelum mengubah label ke IDR/kWh.
+- Reliability perlu didefinisikan dari energi terpenuhi / kebutuhan, bukan dari nama field saja.

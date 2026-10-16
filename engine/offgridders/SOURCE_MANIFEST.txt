@@ -1,0 +1,5 @@
+﻿source_path=C:\Users\ASUS\.vscode\desa-nyala\offgridders
+source_remote=https://github.com/rl-institut/offgridders.git
+source_commit=9095014d054b26e1c0a02b51d237840e1b8e9ea6
+imported_at=2026-10-15T17:49:25.5097829+07:00
+license_source=LICENSE

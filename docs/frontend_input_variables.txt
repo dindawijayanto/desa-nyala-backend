@@ -1,0 +1,348 @@
+DESANYALA - DAFTAR NAMA VARIABEL INPUT FRONTEND
+Versi desain: desanyala_input_cards.html
+Tujuan: membantu integrasi frontend dengan backend DesaNyala dan adapter Offgridders.
+
+PENTING
+1. Nama ID HTML di bawah adalah nama aktual yang digunakan di file HTML saat ini.
+2. Nama properti JSON adalah kontrak input yang dibentuk oleh fungsi buildConfig() di HTML.
+3. Kontrak JSON ini adalah format DesaNyala yang diusulkan, BUKAN format input native Offgridders. Backend/adapter perlu menerjemahkannya ke workbook dan time series yang dibutuhkan Offgridders.
+4. Profil beban per jam dan profil PV per jam BELUM dibuat oleh HTML saat ini. Di JSON, hal ini ditandai dengan profile_generation_method='not_implemented' dan hourly_profile_source='not_configured'. Jangan menganggap konfigurasi tersebut bisa langsung menjalankan optimizer tanpa backend tambahan.
+5. Format angka: frontend menyimpan nilai numerik sebagai number; persentase pada JSON umumnya dikonversi menjadi pecahan 0..1.
+
+============================================================
+A. CARD 01 - PROJECT & SIMULATION
+============================================================
+HTML ID            JSON path                              Tipe / satuan
+projectName        project.name                           string
+location           project.location                       string
+households         project.households                     integer, rumah tangga
+electrification    project.electrification_status         enum:
+                                                          unserved | diesel_existing | hybrid_existing
+simulationDays     project.simulation_days                integer, hari
+(project default)  project.time_step_hours                 number, jam; saat ini konstan 1, bukan field yang dapat diedit
+projectLifetime    project.project_lifetime_years          integer, tahun
+currency           project.currency                       enum: IDR | USD
+
+Nilai UI terkait:
+- simulationDays: 365, 30, 7
+- electrification: unserved, diesel_existing, hybrid_existing
+
+============================================================
+B. CARD 02 - ELECTRICITY DEMAND
+============================================================
+Daftar peralatan bersifat dinamis. Setiap baris menggunakan atribut data-key:
+
+HTML data-key        JSON path dalam setiap item demand.loads[]      Tipe / satuan
+category             demand.loads[].category                         string
+                     Kategori yang tersedia: Rumah tangga, Sekolah,
+                     Puskesmas, Pompa air, UMKM, Fasilitas umum, Lainnya
+device               demand.loads[].device                           string
+quantity             demand.loads[].quantity                         integer, unit
+power_w              demand.loads[].power_w                          number, watt per unit
+hours_per_day        demand.loads[].hours_per_day                     number, jam/hari
+(hasil hitung)       demand.loads[].estimated_kwh_day                number, kWh/hari
+
+Ringkasan yang tampil di UI (bukan input pengguna):
+HTML ID             Arti
+ dailyEnergy        Total estimasi energi semua peralatan, kWh/hari
+ annualEnergy       Estimasi energi tahunan = energi harian x 365, kWh/tahun
+ connectedPower     Jumlah daya terpasang peralatan, kW
+ equipmentCount     Jumlah baris peralatan
+ sideDaily          Salinan ringkasan energi harian di sidebar
+
+Properti demand JSON lain:
+demand.profile_source                 string, saat ini 'equipment_estimate'
+demand.estimated_daily_energy_kwh     number, kWh/hari
+demand.estimated_annual_energy_kwh    number, kWh/tahun
+demand.profile_generation_method      string, saat ini 'not_implemented'
+
+CATATAN: estimated_kwh_day dihitung dari quantity * power_w * hours_per_day / 1000.
+Formula ini hanya estimasi energi; belum membentuk profil beban per jam, faktor keserentakan,
+perbedaan pola antarhari, atau beban puncak aktual. Backend harus membuat profil per jam.
+
+============================================================
+C. CARD 03 - SOLAR PV
+============================================================
+HTML ID       JSON path                              Tipe / satuan
+pvEnabled     pv.enabled                             boolean
+solarLocation pv.resource_location                   string; fallback ke project.location
+solarHours    pv.peak_sun_hours_estimate             number, jam matahari efektif/hari
+pvDerate      pv.system_performance_factor            number, pecahan 0..1 (UI persen dibagi 100)
+pvMode        pv.capacity_mode                       enum: optimize | fixed
+pvFixed       pv.fixed_capacity_kwp                  number, kWp; null bila mode optimize
+pvMin         pv.capacity_min_kwp                    number, kWp
+pvMax         pv.capacity_max_kwp                    number, kWp
+pvCapex       pv.capex_per_kwp                       number, biaya/kWp
+pvOpex        pv.opex_annual_per_kwp                 number, biaya/kWp/tahun
+pvLife        pv.lifetime_years                      integer, tahun
+
+Properti PV JSON yang dibuat tetapi bukan input langsung:
+pv.hourly_profile_source                           string, saat ini 'not_configured'
+
+CATATAN: lokasi + peak_sun_hours tidak otomatis menghasilkan kurva SolarGen 8760 jam.
+Backend memerlukan sumber data/algoritme untuk membentuk profil produksi PV per jam, lalu
+mengubahnya ke format time series yang dimengerti Offgridders.
+
+============================================================
+D. CARD 04 - DIESEL GENERATOR
+============================================================
+HTML ID       JSON path                              Tipe / satuan
+ genMode      generators.mode                        enum: existing | new
+genCount     generators.unit_count                   integer, unit genset
+genPower     generators.rated_power_each_kw           number, kW per unit
+ genMinLoad   generators.min_loading_fraction         number, pecahan 0..1
+genMaxLoad   generators.max_loading_fraction         number, pecahan 0..1
+fuelPrice     generators.fuel_price_per_liter         number, biaya/liter
+fuelCurve     generators.fuel_model                   enum: default | efficiency | curve
+genEfficiency generators.efficiency_fraction          number, pecahan 0..1
+genCapex      generators.capex_per_kw                number, biaya/kW
+genOpex       generators.opex_annual_per_unit         number, biaya/unit/tahun
+genLife       generators.lifetime_years               integer, tahun
+
+Properti generator konstan dalam JSON:
+generators.identical_units_assumption                boolean, saat ini true
+generators.unit_commitment_model                     string, saat ini 'requires_validation'
+
+CATATAN KRITIS:
+- Form menganggap unit genset identik: unit_count x rated_power_each_kw.
+- Ini belum membuktikan engine Offgridders mengoptimalkan hidup/mati setiap genset satu per satu.
+- Bila fitur unit commitment dikembangkan, kemungkinan perlu generators[] per unit dengan generator_id,
+  rated_power_kw, min/max loading, startup cost, minimum up/down time, dan fuel curve per unit.
+- Pastikan model bahan bakar di backend cocok dengan fuel_model. 'curve' saat ini hanya pilihan UI,
+  bukan file kurva yang sudah dikirim.
+
+============================================================
+E. CARD 05 - BATTERY STORAGE
+============================================================
+HTML ID          JSON path                              Tipe / satuan
+batteryEnabled   battery.enabled                        boolean
+batMin           battery.capacity_min_kwh              number, kWh
+batMax           battery.capacity_max_kwh              number, kWh
+batPower         battery.power_max_kw                   number, kW
+batChargeEff     battery.charge_efficiency             number, pecahan 0..1
+batDischargeEff  battery.discharge_efficiency          number, pecahan 0..1
+batSocMin        battery.soc_min_fraction              number, pecahan 0..1
+batSocMax        battery.soc_max_fraction              number, pecahan 0..1
+batSocInitial    battery.soc_initial_fraction         number, pecahan 0..1
+batCapex         battery.capex_per_kwh                 number, biaya/kWh
+batPowerCapex    battery.power_capex_per_kw             number, biaya/kW
+batLife          battery.lifetime_years               integer, tahun
+
+CATATAN: nilai persen pada UI dikonversi ke pecahan sebelum dikirim di JSON. Contoh 97% menjadi 0.97.
+Jika battery.enabled=false, backend sebaiknya mengabaikan parameter baterai dan mematikan komponen baterai
+pada model. Jangan hanya menyembunyikan input di UI.
+
+============================================================
+F. CARD 06 - ECONOMIC ASSUMPTIONS
+============================================================
+HTML ID        JSON path                              Tipe / satuan
+currency       project.currency                       enum: IDR | USD
+discountRate   economics.discount_rate               number, pecahan 0..1
+fuelEscalation economics.fuel_price_escalation_annual number, pecahan 0..1
+projectExtraCost economics.additional_project_cost   number, mata uang proyek
+
+CATATAN: discountRate dan fuelEscalation dikonversi dari persen ke pecahan.
+Saat ini nilai fuel escalation default 0 karena rumus perubahan harga bahan bakar Offgridders
+pada eksperimen sebelumnya menghasilkan warning; jangan gunakan nilai nonzero tanpa validasi.
+
+============================================================
+G. CARD 07 - RELIABILITY & OPTIMIZATION
+============================================================
+HTML ID           JSON path                                   Tipe / satuan
+targetReliability reliability.target_supply_fraction         number, pecahan 0..1
+shortagePolicy    reliability.shortage_policy                enum: forbid | bounded
+maxUnmet          reliability.max_unmet_energy_fraction      number, pecahan 0..1; hanya dipakai jika policy=bounded
+reserveMargin     reliability.reserve_margin_fraction       number, pecahan 0..1
+objective         optimization.objective                     enum: annualized_cost | fuel_consumption
+scenarioDiesel    hasil optimization.scenarios[].id          checkbox skenario diesel-only
+scenarioPv        hasil optimization.scenarios[].id          checkbox skenario PV + diesel
+scenarioBattery   hasil optimization.scenarios[].id          checkbox skenario PV + diesel + baterai
+
+Format item optimization.scenarios[]:
+- {"id":"diesel_only", "pv":false, "battery":false}
+- {"id":"pv_diesel", "pv":true, "battery":false}
+- {"id":"pv_diesel_battery", "pv":true, "battery":true}
+  Catatan: properti battery pada skenario ketiga mengikuti batteryEnabled.
+
+Properti optimizer lain:
+optimization.solver_configuration = 'backend_default'
+
+CATATAN:
+- objective='fuel_consumption' tersedia sebagai opsi UI, tetapi backend harus menyediakan fungsi objektif yang
+  benar-benar meminimalkan konsumsi bahan bakar. Jangan hanya mengubah label/field jika model tidak mendukungnya.
+- target_supply_fraction dan reserve_margin_fraction merupakan kontrak DesaNyala; perlu diterjemahkan menjadi
+  kendala matematika yang sesuai. Tidak semuanya merupakan field native langsung pada Offgridders.
+
+============================================================
+H. STRUKTUR JSON UTAMA YANG SAAT INI DIHASILKAN FRONTEND
+============================================================
+{
+  "schema_version": "desanyala.input.v1",
+  "project": {
+    "name": "string",
+    "location": "string",
+    "households": 150,
+    "electrification_status": "unserved | diesel_existing | hybrid_existing",
+    "simulation_days": 365,
+    "time_step_hours": 1,
+    "project_lifetime_years": 20,
+    "currency": "IDR | USD"
+  },
+  "demand": {
+    "profile_source": "equipment_estimate",
+    "loads": [
+      {
+        "category": "Rumah tangga",
+        "device": "Lampu LED",
+        "quantity": 150,
+        "power_w": 10,
+        "hours_per_day": 6,
+        "estimated_kwh_day": 9.0
+      }
+    ],
+    "estimated_daily_energy_kwh": 0,
+    "estimated_annual_energy_kwh": 0,
+    "profile_generation_method": "not_implemented"
+  },
+  "pv": {
+    "enabled": true,
+    "resource_location": "string",
+    "peak_sun_hours_estimate": 4.5,
+    "system_performance_factor": 0.8,
+    "capacity_mode": "optimize | fixed",
+    "fixed_capacity_kwp": null,
+    "capacity_min_kwp": 0,
+    "capacity_max_kwp": 200,
+    "capex_per_kwp": 15000000,
+    "opex_annual_per_kwp": 150000,
+    "lifetime_years": 25,
+    "hourly_profile_source": "not_configured"
+  },
+  "generators": {
+    "mode": "existing | new",
+    "unit_count": 2,
+    "identical_units_assumption": true,
+    "rated_power_each_kw": 50,
+    "min_loading_fraction": 0.3,
+    "max_loading_fraction": 1.0,
+    "fuel_price_per_liter": 10000,
+    "fuel_model": "default | efficiency | curve",
+    "efficiency_fraction": 0.33,
+    "capex_per_kw": 12500000,
+    "opex_annual_per_unit": 5000000,
+    "lifetime_years": 10,
+    "unit_commitment_model": "requires_validation"
+  },
+  "battery": {
+    "enabled": true,
+    "capacity_min_kwh": 0,
+    "capacity_max_kwh": 200,
+    "power_max_kw": 50,
+    "charge_efficiency": 0.97,
+    "discharge_efficiency": 0.97,
+    "soc_min_fraction": 0.2,
+    "soc_max_fraction": 1.0,
+    "soc_initial_fraction": 0.5,
+    "capex_per_kwh": 2500000,
+    "power_capex_per_kw": 500000,
+    "lifetime_years": 13
+  },
+  "economics": {
+    "discount_rate": 0.08,
+    "fuel_price_escalation_annual": 0,
+    "additional_project_cost": 0
+  },
+  "reliability": {
+    "target_supply_fraction": 0.995,
+    "shortage_policy": "forbid | bounded",
+    "max_unmet_energy_fraction": 0,
+    "reserve_margin_fraction": 0.1
+  },
+  "optimization": {
+    "objective": "annualized_cost | fuel_consumption",
+    "scenarios": [],
+    "solver_configuration": "backend_default"
+  },
+  "notes": [
+    "Input contract proposal for DesaNyala adapter. Not a native Offgridders workbook.",
+    "Hourly demand and PV profiles still need to be generated or sourced before optimization.",
+    "Multi-unit generator commitment requires an explicitly validated model."
+  ]
+}
+
+============================================================
+I. HTML ID UNTUK INTEGRASI FRONTEND
+============================================================
+Input yang bisa dibaca frontend dengan document.getElementById(id):
+projectName, location, households, electrification, simulationDays, projectLifetime,
+pvEnabled, solarLocation, solarHours, pvDerate, pvMode, pvFixed, pvMin, pvMax, pvCapex,
+pvOpex, pvLife, genMode, genCount, genPower, genMinLoad, genMaxLoad, fuelPrice, fuelCurve,
+genEfficiency, genCapex, genOpex, genLife, batteryEnabled, batMin, batMax, batPower,
+batChargeEff, batDischargeEff, batSocMin, batSocMax, batSocInitial, batCapex,
+batPowerCapex, batLife, currency, discountRate, fuelEscalation, projectExtraCost,
+targetReliability, shortagePolicy, maxUnmet, objective, reserveMargin, scenarioDiesel,
+scenarioPv, scenarioBattery.
+
+Input peralatan (elemen dinamis):
+- Kontainer: #equipmentList
+- Tiap baris: [data-load-row]
+- Field dalam baris: [data-key="category"], [data-key="device"],
+  [data-key="quantity"], [data-key="power_w"], [data-key="hours_per_day"]
+- Tombol tambah: #addEquipmentBtn
+
+Elemen UI non-payload / elemen status:
+configForm, errorBox, card-project, card-demand, card-pv, card-gen, card-battery,
+card-economics, card-optimization, addEquipmentBtn, dailyEnergy, annualEnergy,
+connectedPower, pvFields, pvFixedWrap, genEfficiencyWrap, batteryFields, unmetWrap,
+resetBtn, previewBtn, readinessBar, readinessText, readinessPercent, equipmentCount,
+sideDaily, sideGen, sidePv, sideBattery, scenarioSummary, jsonModal, jsonTitle,
+closeModalBtn, jsonOutput, downloadJsonBtn, copyJsonBtn, saveDraftBtn, toast.
+
+Fungsi JS penting saat ini (scope lokal di IIFE, belum diekspos global):
+- getLoads()       : membaca semua baris alat dan menghitung estimasi kWh/hari.
+- getScenarios()   : membentuk array skenario yang dipilih.
+- buildConfig()    : membangun payload JSON lengkap.
+- validate()       : validasi input dasar.
+- updateSummary()  : memperbarui ringkasan sidebar dan kesiapan form.
+
+Jika backend ingin memakai buildConfig() secara langsung, ubah supaya diekspor melalui handler submit/API
+atau pindahkan fungsi serializer ke modul JavaScript yang bisa diimpor. Saat ini tombol pratinjau hanya
+menampilkan JSON, dan tombol unduh menyimpan JSON lokal; belum ada fetch() ke backend.
+
+============================================================
+J. PADANAN UTAMA KE OFFGRIDERS (PERLU ADAPTER)
+============================================================
+DesaNyala JSON / HTML         Target Offgridders / catatan
+project.simulation_days       settings.evaluated_days
+project.location              project_sites.project_site_name / lokasi time series perlu dipetakan
+project.time_step_hours       settings.time_frequency (mis. 'H' untuk per jam)
+demand.loads[]                TIDAK ADA padanan langsung; buat Demand series per jam terlebih dahulu
+pv.hourly_profile_source      TIDAK ADA profil aktual saat ini; buat SolarGen time series per jam terlebih dahulu
+generators.fuel_price_per_liter input_constant.fuel_price, setelah konversi mata uang/satuan yang konsisten
+generators.efficiency_fraction input_constant.genset_efficiency
+battery.charge_efficiency     input_constant.storage_efficiency_charge
+battery.discharge_efficiency  input_constant.storage_efficiency_discharge
+battery.soc_min_fraction      input_constant.storage_soc_min
+battery.soc_max_fraction      input_constant.storage_soc_max
+battery.soc_initial_fraction  input_constant.storage_soc_initial
+ economics.discount_rate      input_constant.wacc
+scenarios[]                   sheet case_definitions; adapter harus menghasilkan kasus yang benar
+optimization.objective        BELUM tentu bisa dipetakan langsung; validasi/implementasi fungsi objektif dibutuhkan
+reliability.*                 Sebagian dapat diterjemahkan ke allow_shortage / shortage constraints; validasi matematis wajib
+wind                           DI LUAR cakupan utama DesaNyala; jangan kirim/aktifkan skenario angin di MVP
+
+============================================================
+K. SARAN KONTRAK API
+============================================================
+Endpoint usulan:
+POST /api/v1/optimizations
+Request body: objek JSON dari buildConfig()
+Response perlu minimal memuat:
+- status: optimal | feasible | infeasible | error
+- scenario_results[]: metrik tiap skenario
+- capacities: kapasitas PV, genset, baterai
+- annual_cost, lcoe, annual_fuel_liters, renewable_share, supply_reliability, unmet_energy_kwh
+- dispatch[]: timestamp, demand_kw, pv_kw, generator_power_kw, battery_charge_kw, battery_discharge_kw, battery_soc_kwh
+- validation: energy_balance_passed, reliability_passed, solver_message
+
+Jangan menampilkan respons sebagai 'hasil optimal' bila solver gagal atau validasi kendala gagal.
