@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
+from fastapi.responses import RedirectResponse
 from app.api.routes.health import router as health_router
 from app.api.routes.inputs import router as inputs_router
 from app.api.routes.optimizations import router as optimizations_router
@@ -14,6 +14,10 @@ app = FastAPI(
         "The optimizer runs only after an Offgridders source checkout has been imported and verified."
     ),
 )
+
+@app.get("/", include_in_schema=False)
+async def root():
+    return RedirectResponse(url="/docs", status_code=307)
 
 app.add_middleware(
     CORSMiddleware,
